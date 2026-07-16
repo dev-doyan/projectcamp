@@ -1,0 +1,27 @@
+{
+  "name": "projectcamp",
+  "version": "1.0.0",
+  "description": "A RESTful project management application with secure authentication, role-based access control, task management, and team collaboration.",
+  "homepage": "https://github.com/dev-doyan/projectcamp#readme",
+  "bugs": {
+    "url": "https://github.com/dev-doyan/projectcamp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dev-doyan/projectcamp.git"
+  },
+  "license": "ISC",
+  "author": "doyan biswas",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "nodemon": "^3.1.14"
+  },
+  "devDependencies": {
+    
+  }
+}
