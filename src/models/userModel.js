@@ -16,12 +16,8 @@ export const userTable=pgTable("users",{
     password:text().notNull(),
     role:roleEnum().notNull().default("member"),
     isEmailVerified:boolean().default(false).notNull(),
-    
-
     refreshToken: text(),
-
     forgotPasswordToken: text(),
-
     forgotPasswordExpiry: timestamp(),
 
     emailVerificationToken: text(),
