@@ -6,7 +6,7 @@ import {register}from "../controller/authcontroller.js"
 router.post("/register",register);
 // router.post("/login");
 // router.post("/refresh-token");
-// router.get("/verify-email/:verificationToken");
+//router.get("/verify-email/:verificationToken")
 // router.post("/forgot-password");
 // router.post("/reset-password/:resetToken");
 

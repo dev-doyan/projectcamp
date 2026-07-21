@@ -3,6 +3,8 @@ import {userTable} from "../models/userModel.js"
 import {eq} from "drizzle-orm"
 import bcrypt from "bcrypt"
 import crypto from "crypto"
+import resend from "../utils/resend.js"
+import { enableCompileCache } from "module"
 
 export const register=async(req,res)=>{
     try {
@@ -54,10 +56,31 @@ const user=await db.insert(userTable).values({
 
 })
 
+//creating email verification link 
 
-//  TODO: Send verification email here
-        // (We'll implement Nodemailer later)
+const e_verificationnLink= `${process.env.BASE_URL}/api/v1/auth/verify-email/${email_vt}`;
 
+
+//sendinf email using resend  
+
+const { data, error } = await resend.emails.send({
+    from: "projectcamp<onboarding@resend.dev>",
+    to: email,
+    subject: "Verify your Project Camp Account",
+    html: `<h1><h2>click below to verify email</h2>
+<a href="${e_verificationnLink}">verify email</a>
+
+<p>
+    This link expires in 24 hours.
+</p></h1>`
+});
+
+if (error) {
+    console.error("Resend error:", error);
+    // don't fail user creation, but log/flag it — or return 500 if email delivery is critical
+}
+
+console.log("Resend success:", data);
 
 
         return res.status(201).json({
