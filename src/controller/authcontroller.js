@@ -4,7 +4,7 @@ import {eq} from "drizzle-orm"
 import bcrypt from "bcrypt"
 import crypto from "crypto"
 import resend from "../utils/resend.js"
-import { enableCompileCache } from "module"
+import jwt from "jsonwebtoken"
 
 export const register=async(req,res)=>{
     try {
@@ -124,7 +124,8 @@ export const verifyemail=async(req,res)=>{
             updatedAt: new Date()
         }).where(eq(userTable.id,user[0].id))
 
-        return res.status(200).json({mssg:"email verified",
+        return res.status(200).json({sucess:true,
+            mssg:"email verified",
             name:user[0].name,
             email:user[0].email
         })
@@ -140,8 +141,112 @@ export const verifyemail=async(req,res)=>{
 
 export const login=async(req,res)=>{
     try {
+        const{email,password}=req.body;
+
+        if(!email ||!password){
+            return res.status(400).json({messg:"bad request"});
+
+        }
+
+        const user=await db.select().from(userTable).where(eq(userTable.email,email));
+
+        if(user.length==0){
+            return res.status(400).json({mssg:"invalid email"});
+
+        }
         
-    } catch (error) {
+        const is_match=await bcrypt.compare(password,user[0].password);
+
+        if(!is_match){
+            return res.status(401).json({mssg:"password invalid "})
+        }
+
+
+        if(user[0].isEmailVerified==false){
+            return res.status(403).json({mssg:"email not verrified , verify your email "})
+        }
+
+
+
+        //access token
+
+        const accesstoken =jwt.sign({id:user[0].id,role:user[0].role},process.env.JWT_SECRET,{expiresIn:"1d"});
+
+        //refesh token 
+
+        const refreshtoken=jwt.sign({id:user[0].id,role:user[0].role},process.env.JWT_SECRET,{expiresIn:"7d"});
+
+
+        //update db
+
+        await db.update(userTable).set({
+            refreshToken:refreshtoken,
+            updatedAt:new Date()
+        }
+    
+        ).where(eq(userTable.id),user[0].id);
+
+
+        //storing in cookie 
+        res.cookie("refeshtoken",refreshtoken,
+            {
+
+                httpOnly: true,
+
+                secure: false,
+
+                
+
+                maxAge: 7 * 24 * 60 * 60 * 1000
+
+            }
+        )
+
+
+
+        res.cookie("accesstoken",accesstoken,
+            {
+
+                httpOnly: true,
+
+                secure: false,
+
+                
+
+                maxAge: 1* 24 * 60 * 60 * 1000
+
+            }
+        )
+
+
+
+
+            return res.status(200).json({
+
+            success: true,
+
+            message: "Login successful.",
+
+            
+
+            user: {
+
+                id: user[0].id,
+
+                name: user[0].name,
+
+                email: user[0].email,
+
+                username: user[0].username,
+
+                role: user[0].role
+            }
         
+    })
+
+        } catch (error) {
+        return res.status(500).json({
+        success: false,
+            message: error.message})
     }
 }
