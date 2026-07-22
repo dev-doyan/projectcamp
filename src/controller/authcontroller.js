@@ -98,3 +98,50 @@ console.log("Resend success:", data);
         return res.status(500).json({message:error.message})
     }
 }
+
+
+
+//email verification
+export const verifyemail=async(req,res)=>{
+    try {
+        const token =req.params.verificationToken;
+
+        const user=await db.select().from(userTable).where(eq(userTable.emailVerificationToken,token));
+        
+        if(user.length==0){
+            return res.status(400).json({message:"not a valid token"});
+        }
+
+        if(new Date()>user[0].emailVerificationExpiry){
+            return res.status(401).json({mssg:"session expired"});
+        }
+
+//updating the databse 
+        await db.update(userTable).set({
+            emailVerificationToken:null,
+            emailVerificationExpiry:null,
+            isEmailVerified:true,
+            updatedAt: new Date()
+        }).where(eq(userTable.id,user[0].id))
+
+        return res.status(200).json({mssg:"email verified",
+            name:user[0].name,
+            email:user[0].email
+        })
+
+
+    } catch (error) {
+        return res.json({mssg:error.message})
+    }
+}
+
+
+//login
+
+export const login=async(req,res)=>{
+    try {
+        
+    } catch (error) {
+        
+    }
+}
