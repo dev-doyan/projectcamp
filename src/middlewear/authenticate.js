@@ -6,7 +6,7 @@ export const authenticate=async(req,res,next)=>{
     
     try {
         const accesstoken=req.cookies.accesstoken;
-    if (!accessToken) {
+    if (!accesstoken) {
 
             return res.status(401).json({
                 success: false,
@@ -31,6 +31,7 @@ export const authenticate=async(req,res,next)=>{
 // req.user = user[0];
 
 req.user=decode;
+console.log(req.user)
 next()
 
 

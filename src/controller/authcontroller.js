@@ -5,6 +5,7 @@ import bcrypt from "bcrypt"
 import crypto from "crypto"
 import resend from "../utils/resend.js"
 import jwt from "jsonwebtoken"
+import cookieParser from "cookie-parser"
 
 export const register=async(req,res)=>{
     try {
@@ -81,6 +82,7 @@ if (error) {
 }
 
 console.log("Resend success:", data);
+console.log("Error:", error);
 
 
         return res.status(201).json({
@@ -184,7 +186,7 @@ export const login=async(req,res)=>{
             updatedAt:new Date()
         }
     
-        ).where(eq(userTable.id),user[0].id);
+        ).where(eq(userTable.id,user[0].id));
 
 
         //storing in cookie 
@@ -248,5 +250,90 @@ export const login=async(req,res)=>{
         return res.status(500).json({
         success: false,
             message: error.message})
+    }
+}
+
+
+
+
+
+
+//curreent user
+
+export const currentuser=async(req,res)=>{
+   try {
+    const id=req.user.id;
+    const user=await db.select().from(userTable).where(eq(userTable.id,id));
+    if(user.length==0){
+        return res.status(404).json({message:"uuser cannot be found"})
+    }
+
+    return res.status(200).json({mssg:"success",
+        id:user[0].id,
+       user:{ username:user[0].username,
+        email:user[0].email
+
+    }
+    })
+
+
+
+
+   } catch (error) {
+    return res.status(500).json({mssg:error.message})
+   }
+}
+
+
+
+
+
+export const refreshToken=async(req,res)=>{
+    try {
+        const refreshtoken =req.cookies.refeshtoken;
+        
+
+        if(!refreshtoken){
+            return res.status(404).json({mssg:"this is the mssg"});
+        }
+
+
+        const decode=jwt.verify(refreshtoken,process.env.JWT_SECRET);
+
+        const user=await db.select().from(userTable).where(eq(userTable.id,decode.id));
+
+        if(user.length==0){
+            return res.status(404).json({mssg:"user cannnot be found"});
+        }
+
+
+        if (user[0].refreshToken !== refreshtoken) {
+    return res.status(401).json({
+        message: "Invalid refresh token"
+    });
+}
+
+        const accessToken =jwt.sign({id:user[0].id,role:user[0].role},process.env.JWT_SECRET,{expiresIn:"1d"});
+        res.cookie("accesstoken",accessToken,
+            {
+
+                httpOnly: true,
+
+                secure: false,
+
+                
+
+                maxAge: 1* 24 * 60 * 60 * 1000
+
+            }
+        )
+
+
+        res.status(200).json({mssg:"accees token generATED"})
+
+
+
+    } catch (error) {
+        return res.status(500).json({mssg:error.message})
     }
 }
