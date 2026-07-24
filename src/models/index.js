@@ -1,2 +1,3 @@
 import { userTable ,roleEnum} from "./userModel.js";
-export{userTable,roleEnum}
+import { projectTable,statusEnum } from "./projectModel.js";
+export{userTable,roleEnum,projectTable,statusEnum}
