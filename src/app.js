@@ -5,6 +5,7 @@ dotenv.config()
 import cookieParser from "cookie-parser"
 import cors from "cors"
 import authRoutes from "../src/routes/authRoutes.js"
+import projectRoutes from "../src/routes/projectRoutes.js"
 //env variables
 let port =process.env.PORT;
 
@@ -18,6 +19,7 @@ app.use(cors())
 
 //routes
 app.use("/api/v1/auth",authRoutes);
+app.use("/api/v1/projects", projectRoutes);
 
 
 
