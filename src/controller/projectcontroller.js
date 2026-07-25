@@ -1,4 +1,6 @@
 import db from "../db/index.js"
+import { memberTable } from "../models/memberModel.js";
+import { userTable } from "../models/userModel.js";
 import { projectTable } from "../models/projectModel.js";
 import {eq} from "drizzle-orm"
 
@@ -22,10 +24,25 @@ const project =await db.insert(projectTable).values({
     name,
     description: req.body.description ||null,
     ownerId:uid
-}).returning({name:projectTable.name,
+}).returning({
+    id:projectTable.id,
+    name:projectTable.name,
     description:projectTable.description,
-    createdby:projectTable.ownerId
+    ownerId:projectTable.ownerId
 })
+
+
+
+
+//add creator as ownwer in member table
+await db.insert(memberTable).values({
+    userId:project[0].ownerId,
+    projectId:project[0].id,
+    role:"owner"
+
+})
+
+
 
 return res.status(200).json({mssg:"success",project})
 
@@ -190,3 +207,63 @@ export const deleteProject = async (req, res) => {
         });
     }
 };
+
+
+
+
+export const inviteMember=async(req,res)=>{
+    try {
+
+      const id=req.user.id;
+
+
+
+        const projectId=req.params.projectId;
+
+    
+
+
+
+        const{email,role}=req.body;
+        if(!email ){
+            return res.status(401).json({mssg:"need email"});
+        }
+      
+        const project =await db.select().from(projectTable).where(eq(projectTable.id,projectId));
+
+        
+
+        if(project.length==0){
+            return res.status(400).json({mssg:"invalid project id"});
+        }
+
+        if(project[0].ownerId!=id){
+    return res.status(400).json({mssg:"you are not the owner "})
+}
+
+
+        const user= await db.select().from(userTable).where(eq(userTable.email,email));
+        if(user.length==0){
+            return res.status(400).json({mssg:"invalid email"});
+        }
+
+        const member =await db.insert(memberTable).values({
+         role,
+         userId:user[0].id,
+         projectId:projectId
+        })
+
+        return res.status(200).json({mssg:"success",
+            member
+        })
+
+
+
+
+ 
+
+
+    } catch (error) {
+        return res.status(500).json({mssg:error.mssg})
+    }
+}
