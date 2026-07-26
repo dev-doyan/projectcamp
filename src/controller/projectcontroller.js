@@ -321,3 +321,133 @@ return res.status(200).json({mssg:"succuss",
 
 
 }
+
+
+ export const removeMember=async(req,res)=>{
+    try {
+        const id=req.user.id;
+    const projectId=req.params.projectId;
+    const memberId=req.params.memberId;
+
+    if(!id){
+        return res.status(401).json({mssg:"you need tto login"})
+    }
+
+const doer =await db.select().from(memberTable).where(and(
+    eq(memberTable.userId,id),
+    eq(memberTable.projectId,projectId)
+));
+
+if(doer.length==0 || doer[0].role !="owner"){
+    return res.status(403).json({mssg:"you are not the owner or you are not authorised or its the wrong project"})
+}
+
+
+
+
+    const member=await db.select().from(memberTable).where(and(eq(memberTable.projectId,projectId),
+eq(memberTable.id,memberId)
+));
+    if(member.length==0){
+        return res.status(404).json({mssg:"either wrong member or wring project "})
+    }
+if(member[0].role=="owner"){
+    return res.status(403).json({mssg:"owner cant be deleted"})
+}
+
+
+
+    const deleteduser=await db.delete(memberTable).where(eq(memberTable.userId,member[0].userId)).returning({userId:memberTable.userId});
+
+
+    return res.status(200).json({mssg:"member deleted",
+        deleteduser
+    })
+
+
+
+
+
+
+
+    } catch (error) {
+        return res.status(500).json({mssg:error.message})
+    }
+
+
+}
+
+
+export const updateMemberRole = async (req, res) => {
+    try {
+
+        const id = req.user.id;
+        const projectId = req.params.projectId;
+        const memberId = req.params.memberId;
+
+        const { role } = req.body;
+
+        if (!id) {
+            return res.status(401).json({ mssg: "you need to login" });
+        }
+
+        if (!role) {
+            return res.status(400).json({ mssg: "role is required" });
+        }
+
+        const project = await db
+            .select()
+            .from(projectTable)
+            .where(eq(projectTable.id, projectId));
+
+        if (project.length == 0) {
+            return res.status(404).json({ mssg: "project not found" });
+        }
+
+        if (project[0].ownerId != id) {
+            return res.status(403).json({
+                mssg: "only project owner can update member role"
+            });
+        }
+
+        const member = await db
+            .select()
+            .from(memberTable)
+            .where(
+                and(
+                    eq(memberTable.id, memberId),
+                    eq(memberTable.projectId, projectId)
+                )
+            );
+
+        if (member.length == 0) {
+            return res.status(404).json({
+                mssg: "member not found"
+            });
+        }
+
+        if (member[0].role == "owner") {
+            return res.status(403).json({
+                mssg: "owner role cannot be changed"
+            });
+        }
+
+        const updatedMember = await db
+            .update(memberTable)
+            .set({
+                role: role
+            })
+            .where(eq(memberTable.id, memberId))
+            .returning();
+
+        return res.status(200).json({
+            mssg: "member role updated successfully",
+            updatedMember
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            mssg: error.message
+        });
+    }
+};
