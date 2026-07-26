@@ -2,7 +2,7 @@ import db from "../db/index.js"
 import { memberTable } from "../models/memberModel.js";
 import { userTable } from "../models/userModel.js";
 import { projectTable } from "../models/projectModel.js";
-import {eq} from "drizzle-orm"
+import {eq,and} from "drizzle-orm"
 
 
 
@@ -211,59 +211,113 @@ export const deleteProject = async (req, res) => {
 
 
 
-export const inviteMember=async(req,res)=>{
+export const inviteMember = async (req, res) => {
     try {
 
-      const id=req.user.id;
+        const id = req.user.id;
 
+        const projectId = req.params.projectId;
 
+        const { email, role } = req.body;
 
-        const projectId=req.params.projectId;
-
-    
-
-
-
-        const{email,role}=req.body;
-        if(!email ){
-            return res.status(401).json({mssg:"need email"});
-        }
-      
-        const project =await db.select().from(projectTable).where(eq(projectTable.id,projectId));
-
-        
-
-        if(project.length==0){
-            return res.status(400).json({mssg:"invalid project id"});
+        if (!email) {
+            return res.status(400).json({ mssg: "need email" });
         }
 
-        if(project[0].ownerId!=id){
-    return res.status(400).json({mssg:"you are not the owner "})
-}
+        const project = await db
+            .select()
+            .from(projectTable)
+            .where(eq(projectTable.id, projectId));
 
-
-        const user= await db.select().from(userTable).where(eq(userTable.email,email));
-        if(user.length==0){
-            return res.status(400).json({mssg:"invalid email"});
+        if (project.length == 0) {
+            return res.status(404).json({ mssg: "invalid project id" });
         }
 
-        const member =await db.insert(memberTable).values({
-         role,
-         userId:user[0].id,
-         projectId:projectId
-        })
+        if (project[0].ownerId != id) {
+            return res.status(403).json({
+                mssg: "Only the project owner can invite members"
+            });
+        }
 
-        return res.status(200).json({mssg:"success",
+        const user = await db
+            .select()
+            .from(userTable)
+            .where(eq(userTable.email, email));
+
+        if (user.length == 0) {
+            return res.status(404).json({ mssg: "invalid email" });
+        }
+
+        const existingMember = await db
+            .select()
+            .from(memberTable)
+            .where(
+                and(
+                    eq(memberTable.projectId, projectId),
+                    eq(memberTable.userId, user[0].id)
+                )
+            );
+
+        if (existingMember.length > 0) {
+            return res.status(409).json({
+                mssg: "User is already a member"
+            });
+        }
+
+        const member = await db
+            .insert(memberTable)
+            .values({
+                role,
+                userId: user[0].id,
+                projectId: projectId
+            })
+            .returning();
+
+        return res.status(201).json({
+            mssg: "success",
             member
-        })
-
-
-
-
- 
-
+        });
 
     } catch (error) {
-        return res.status(500).json({mssg:error.mssg})
+        return res.status(500).json({
+            mssg: error.message
+        });
     }
+};
+
+
+
+export const getProjectMembers=async(req,res)=>{
+    const id=req.user.id;
+    if(!id){
+        return res.status(401).json({mssg:"you need to login first"})
+    }
+    const projectId=req.params.projectId;
+
+const project= await db.select().from(projectTable).where(eq(projectTable.id,projectId));
+if(project.length==0){
+    return  res.status(404).json({mssg:"project not found "})
+}
+
+const user=await db.select().from(memberTable).where(and(
+    eq(memberTable.userId,id),
+    eq(memberTable.projectId,projectId)
+))
+
+if(user.length==0){
+    return res.status(403).json({mssg:"you are not a member of this project"})
+}
+
+const members=await db.select({name:userTable.name,
+    email:userTable.email,
+    role:memberTable.role
+
+
+}).from(memberTable).rightJoin(userTable,eq(userTable.id,memberTable.userId)).where(eq(memberTable.projectId,projectId));
+return res.status(200).json({mssg:"succuss",
+    members
+})
+
+
+
 }
