@@ -211,6 +211,34 @@ export const updateTask = async (req, res) => {
             });
         }
 
+        // Owner, Admin or Assigned User can update
+        if (
+            member[0].role !== "owner" &&
+            member[0].role !== "admin" &&
+            task[0].assignedTo !== uid
+        ) {
+            return res.status(403).json({
+                mssg: "you are not authorised to update this task"
+            });
+        }
+
+        // If assigning to another user, ensure that user belongs to this project
+        if (assignedTo) {
+
+            const assignedMember = await db.select().from(memberTable).where(
+                and(
+                    eq(memberTable.projectId, projectId),
+                    eq(memberTable.userId, assignedTo)
+                )
+            );
+
+            if (assignedMember.length == 0) {
+                return res.status(400).json({
+                    mssg: "assigned user is not a member of this project"
+                });
+            }
+        }
+
         const updatedTask = await db.update(taskTable)
             .set({
                 title,
@@ -230,11 +258,13 @@ export const updateTask = async (req, res) => {
         });
 
     } catch (error) {
+
         return res.status(500).json({
             mssg: error.message
         });
+
     }
-}
+};
 
 
 
@@ -283,6 +313,16 @@ export const deleteTask = async (req, res) => {
             });
         }
 
+        // Only Owner or Admin can delete
+        if (
+            member[0].role !== "owner" &&
+            member[0].role !== "admin"
+        ) {
+            return res.status(403).json({
+                mssg: "you are not authorised to delete this task"
+            });
+        }
+
         const deletedTask = await db.delete(taskTable)
             .where(eq(taskTable.id, taskId))
             .returning();
@@ -293,8 +333,10 @@ export const deleteTask = async (req, res) => {
         });
 
     } catch (error) {
+
         return res.status(500).json({
             mssg: error.message
         });
+
     }
-}
+};
