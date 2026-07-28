@@ -118,3 +118,183 @@ return res.status(200).json({mssg:'success',
         return res.status(500).json({mssg:error.message})
     }
 }
+
+
+
+export const getTaskById=async(req,res)=>{
+    try {
+        const uid=req.user.id;
+
+    const projectId=req.params.projectId;
+    const taskId=req.params.taskId;
+
+
+    const project=await db.select().from(projectTable).where(eq(projectTable.id,projectId));
+
+    if(project.length==0){
+        return res.status(404).json({mssg:"project doessnot exist wth this id"});
+    }
+
+
+    const user=await db.select().from(memberTable).where(and(
+        eq(memberTable.projectId,projectId),
+        eq(memberTable.userId,uid)
+    ))
+
+
+    if(user.length==0){
+        return res.status(403).json({mssg:"you are not a part of this project "})
+    }
+
+
+    const task= await db.select().from(taskTable).where(and(
+        eq(taskTable.projectId,projectId),
+        eq(taskTable.id,taskId)
+    ))
+
+    
+    if(task.length==0){
+        return res.status(400).json({mssg:"task id doesnot belong to the project id"})
+    }
+
+    return res.status(200).json({mssg:"success",task})
+
+    } catch (error) {
+        return res.status(500).json({mssg:error.message});
+    }
+
+}
+
+
+export const updateTask = async (req, res) => {
+    try {
+
+        const uid = req.user.id;
+        const projectId = req.params.projectId;
+        const taskId = req.params.taskId;
+
+        const { title, description, priority, status, dueDate, assignedTo } = req.body;
+
+        const project = await db.select().from(projectTable).where(
+            eq(projectTable.id, projectId)
+        );
+
+        if (project.length == 0) {
+            return res.status(404).json({
+                mssg: "invalid project id"
+            });
+        }
+
+        const member = await db.select().from(memberTable).where(
+            and(
+                eq(memberTable.projectId, projectId),
+                eq(memberTable.userId, uid)
+            )
+        );
+
+        if (member.length == 0) {
+            return res.status(403).json({
+                mssg: "you are not a member of this project"
+            });
+        }
+
+        const task = await db.select().from(taskTable).where(
+            and(
+                eq(taskTable.projectId, projectId),
+                eq(taskTable.id, taskId)
+            )
+        );
+
+        if (task.length == 0) {
+            return res.status(404).json({
+                mssg: "task not found"
+            });
+        }
+
+        const updatedTask = await db.update(taskTable)
+            .set({
+                title,
+                description,
+                priority,
+                status,
+                dueDate,
+                assignedTo,
+                updatedAt: new Date()
+            })
+            .where(eq(taskTable.id, taskId))
+            .returning();
+
+        return res.status(200).json({
+            mssg: "task updated",
+            updatedTask
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            mssg: error.message
+        });
+    }
+}
+
+
+
+
+
+export const deleteTask = async (req, res) => {
+    try {
+
+        const uid = req.user.id;
+        const projectId = req.params.projectId;
+        const taskId = req.params.taskId;
+
+        const project = await db.select().from(projectTable).where(
+            eq(projectTable.id, projectId)
+        );
+
+        if (project.length == 0) {
+            return res.status(404).json({
+                mssg: "invalid project id"
+            });
+        }
+
+        const member = await db.select().from(memberTable).where(
+            and(
+                eq(memberTable.projectId, projectId),
+                eq(memberTable.userId, uid)
+            )
+        );
+
+        if (member.length == 0) {
+            return res.status(403).json({
+                mssg: "you are not a member of this project"
+            });
+        }
+
+        const task = await db.select().from(taskTable).where(
+            and(
+                eq(taskTable.projectId, projectId),
+                eq(taskTable.id, taskId)
+            )
+        );
+
+        if (task.length == 0) {
+            return res.status(404).json({
+                mssg: "task not found"
+            });
+        }
+
+        const deletedTask = await db.delete(taskTable)
+            .where(eq(taskTable.id, taskId))
+            .returning();
+
+        return res.status(200).json({
+            mssg: "task deleted",
+            deletedTask
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            mssg: error.message
+        });
+    }
+}
