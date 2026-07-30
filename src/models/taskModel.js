@@ -19,6 +19,9 @@ export const taskTable=pgTable("tasks",{
     status:taskStatus().default("todo").notNull(),
     priority:priority().default("low").notNull(),
     dueDate:timestamp().notNull(),
+    attachmentUrl:text(),
+    attachmentPublicId:text(),
+
     createdBy:uuid().references(()=>userTable.id).notNull(),
     assignedTo:uuid().references(()=>userTable.id).notNull(),
     projectId:uuid().references(()=>projectTable.id).notNull(),
