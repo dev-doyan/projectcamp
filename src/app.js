@@ -24,7 +24,11 @@ app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/tasks",taskRoutes);
 
 
-
+app.get("/ping", (req, res) => {
+    return res.json({
+        message: "pong"
+    });
+});
 
 app.listen(port,()=>{
     console.log(`server running at ${port}`)
