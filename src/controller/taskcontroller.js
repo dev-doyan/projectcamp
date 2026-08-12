@@ -2,7 +2,50 @@ import { eq,and } from "drizzle-orm";
 import { projectTable } from "../models/projectModel.js";
 import { taskTable } from "../models/taskModel.js"
 import { memberTable } from "../models/memberModel.js";
-import  db from "../db/index.js"
+import db from "../db/index.js";
+import { uploadFile, deleteFile } from "../utils/cloudinary.js";
+
+const canUpdateTask = (member, task, uid) => {
+    return (
+        member.role === "owner" ||
+        member.role === "admin" ||
+        task.assignedTo === uid
+    );
+};
+
+const getTaskWithAccess = async (uid, projectId, taskId) => {
+    const project = await db.select().from(projectTable).where(
+        eq(projectTable.id, projectId)
+    );
+
+    if (project.length === 0) {
+        return { error: { status: 404, mssg: "invalid project id" } };
+    }
+
+    const member = await db.select().from(memberTable).where(
+        and(
+            eq(memberTable.projectId, projectId),
+            eq(memberTable.userId, uid)
+        )
+    );
+
+    if (member.length === 0) {
+        return { error: { status: 403, mssg: "you are not a member of this project" } };
+    }
+
+    const task = await db.select().from(taskTable).where(
+        and(
+            eq(taskTable.projectId, projectId),
+            eq(taskTable.id, taskId)
+        )
+    );
+
+    if (task.length === 0) {
+        return { error: { status: 404, mssg: "task not found" } };
+    }
+
+    return { member: member[0], task: task[0] };
+};
 export const createTask=async(req,res)=>{
 try {
     const projectId=req.params.projectId;
@@ -313,6 +356,10 @@ export const deleteTask = async (req, res) => {
             });
         }
 
+        if (task[0].attachmentPublicId) {
+            await deleteFile(task[0].attachmentPublicId);
+        }
+
         // Only Owner or Admin can delete
         if (
             member[0].role !== "owner" &&
@@ -338,5 +385,89 @@ export const deleteTask = async (req, res) => {
             mssg: error.message
         });
 
+    }
+};
+
+export const uploadTaskAttachment = async (req, res) => {
+    try {
+        const uid = req.user.id;
+        const { projectId, taskId } = req.params;
+
+        if (!req.file) {
+            return res.status(400).json({ mssg: "attachment file is required" });
+        }
+
+        const access = await getTaskWithAccess(uid, projectId, taskId);
+        if (access.error) {
+            return res.status(access.error.status).json({ mssg: access.error.mssg });
+        }
+
+        if (!canUpdateTask(access.member, access.task, uid)) {
+            return res.status(403).json({
+                mssg: "you are not authorised to update this task",
+            });
+        }
+
+        if (access.task.attachmentPublicId) {
+            await deleteFile(access.task.attachmentPublicId);
+        }
+
+        const result = await uploadFile(req.file);
+
+        const updatedTask = await db.update(taskTable)
+            .set({
+                attachmentUrl: result.secure_url,
+                attachmentPublicId: result.public_id,
+                updatedAt: new Date(),
+            })
+            .where(eq(taskTable.id, taskId))
+            .returning();
+
+        return res.status(200).json({
+            mssg: "attachment uploaded",
+            task: updatedTask,
+        });
+    } catch (error) {
+        return res.status(500).json({ mssg: error.message });
+    }
+};
+
+export const deleteTaskAttachment = async (req, res) => {
+    try {
+        const uid = req.user.id;
+        const { projectId, taskId } = req.params;
+
+        const access = await getTaskWithAccess(uid, projectId, taskId);
+        if (access.error) {
+            return res.status(access.error.status).json({ mssg: access.error.mssg });
+        }
+
+        if (!canUpdateTask(access.member, access.task, uid)) {
+            return res.status(403).json({
+                mssg: "you are not authorised to update this task",
+            });
+        }
+
+        if (!access.task.attachmentPublicId) {
+            return res.status(404).json({ mssg: "no attachment found for this task" });
+        }
+
+        await deleteFile(access.task.attachmentPublicId);
+
+        const updatedTask = await db.update(taskTable)
+            .set({
+                attachmentUrl: null,
+                attachmentPublicId: null,
+                updatedAt: new Date(),
+            })
+            .where(eq(taskTable.id, taskId))
+            .returning();
+
+        return res.status(200).json({
+            mssg: "attachment deleted",
+            task: updatedTask,
+        });
+    } catch (error) {
+        return res.status(500).json({ mssg: error.message });
     }
 };
