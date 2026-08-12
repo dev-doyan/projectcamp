@@ -69,7 +69,17 @@ export const getProjectById = async (req, res) => {
             });
         }
 
-        if (project[0].ownerId !== ownerId) {
+        const membership = await db
+            .select()
+            .from(memberTable)
+            .where(
+                and(
+                    eq(memberTable.projectId, projectId),
+                    eq(memberTable.userId, ownerId)
+                )
+            );
+
+        if (membership.length === 0) {
             return res.status(403).json({
                 message: "You are not authorized to access this project."
             });
@@ -96,9 +106,18 @@ export const getAllProjects = async (req, res) => {
         const ownerId = req.user.id;
 
         const projects = await db
-            .select()
+            .select({
+                id: projectTable.id,
+                name: projectTable.name,
+                description: projectTable.description,
+                status: projectTable.status,
+                ownerId: projectTable.ownerId,
+                createdAt: projectTable.createdAt,
+                updatedAt: projectTable.updatedAt,
+            })
             .from(projectTable)
-            .where(eq(projectTable.ownerId, ownerId));
+            .innerJoin(memberTable, eq(memberTable.projectId, projectTable.id))
+            .where(eq(memberTable.userId, ownerId));
 
         return res.status(200).json({
             success: true,
@@ -308,12 +327,13 @@ if(user.length==0){
     return res.status(403).json({mssg:"you are not a member of this project"})
 }
 
-const members=await db.select({name:userTable.name,
+const members=await db.select({
+    id: memberTable.id,
+    userId: memberTable.userId,
+    name:userTable.name,
     email:userTable.email,
     role:memberTable.role
-
-
-}).from(memberTable).rightJoin(userTable,eq(userTable.id,memberTable.userId)).where(eq(memberTable.projectId,projectId));
+}).from(memberTable).innerJoin(userTable,eq(userTable.id,memberTable.userId)).where(eq(memberTable.projectId,projectId));
 return res.status(200).json({mssg:"succuss",
     members
 })
