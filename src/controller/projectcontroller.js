@@ -2,6 +2,7 @@ import db from "../db/index.js"
 import { memberTable } from "../models/memberModel.js";
 import { userTable } from "../models/userModel.js";
 import { projectTable } from "../models/projectModel.js";
+import { redis } from "../utils/redis.js";
 import {eq,and} from "drizzle-orm"
 
 
@@ -100,11 +101,33 @@ export const getProjectById = async (req, res) => {
 
 //get all projects of particular owner 
 
+
 export const getAllProjects = async (req, res) => {
     try {
 
         const ownerId = req.user.id;
 
+        // Create a unique Redis key for each user
+        const redisKey = `projects:${ownerId}`;
+
+        // 1. Check Redis first
+        const cachedProjects = await redis.get(redisKey);
+
+        if (cachedProjects) {
+
+            console.log("Projects fetched from Redis");
+
+            const projects = JSON.parse(cachedProjects);
+
+            return res.status(200).json({
+                success: true,
+                count: projects.length,
+                projects
+            });
+        }
+
+        // 2. If Redis doesn't have the data,
+        // fetch it from PostgreSQL
         const projects = await db
             .select({
                 id: projectTable.id,
@@ -119,6 +142,16 @@ export const getAllProjects = async (req, res) => {
             .innerJoin(memberTable, eq(memberTable.projectId, projectTable.id))
             .where(eq(memberTable.userId, ownerId));
 
+        // 3. Store the projects in Redis
+        // EX 60 = expire after 60 seconds
+        await redis.set(
+            redisKey,
+            JSON.stringify(projects),
+            "EX",
+            60
+        );
+
+        // 4. Return the database result
         return res.status(200).json({
             success: true,
             count: projects.length,
@@ -132,7 +165,6 @@ export const getAllProjects = async (req, res) => {
         });
     }
 };
-
 
 
 export const updateProject = async (req, res) => {

@@ -3,6 +3,8 @@ const app=express()
 import dotenv from "dotenv"
 dotenv.config()
 import cookieParser from "cookie-parser"
+
+
 import cors from "cors"
 import authRoutes from "../src/routes/authRoutes.js"
 import projectRoutes from "../src/routes/projectRoutes.js"
@@ -20,6 +22,8 @@ app.use(cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
 }))
+
+
 
 //routes
 app.use("/api/v1/auth",authRoutes);
